@@ -41,6 +41,11 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
+FitFindr lets a user describe a thrift item they want, including a size and
+maximum price. It searches the listings data, chooses a matching item, and
+uses the user's wardrobe to suggest an outfit. It then turns the outfit idea
+into a short fit card caption. If the search finds nothing, it stops early and
+tells the user what they can change.
 ---
 
 ## Tool Inventory
@@ -147,15 +152,21 @@ CAPTION: vintage denim find with a casual streetwear vibe
 
 **Moment 1**
 
-- _What I asked for:_
-- _What came back:_
-- _What I changed:_
+- _What I asked for:_ I asked Copilot to help me turn the tool requirements
+  into specific input, output, and empty-case rules.
+- _What came back:_ We defined the listing fields, the wardrobe shape, the
+  empty list result for searches, and the session values passed between tools.
+- _What I changed:_ I wrote those rules into the Tool Inventory and used them
+  while building the tools and planning loop.
 
 **Moment 2**
 
-- _What I asked for:_
-- _What came back:_
-- _What I changed:_
+- _What I asked for:_ I asked Claude to clarify how to compare sizes such as
+  `M`, `S/M`, `XL`, and shoe sizes without using unsafe substring matching.
+- _What came back:_ The clarification suggested comparing normalized size
+  tokens so a requested `M` would match `S/M` but not `XL` or `US 9`.
+- _What I changed:_ I added token-based size matching to `search_listings` and
+  checked the empty-search branch separately from the successful path.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 

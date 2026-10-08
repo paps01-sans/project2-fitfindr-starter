@@ -20,9 +20,23 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
-import config  # noqa: F401 — you'll use this in search_listings
+import re
+import json
+
+import config
 from generate import generate
 from utils.data_loader import load_listings
+
+
+def _tokens(value: str) -> set[str]:
+    """Return lowercase alphanumeric tokens, keeping values like W30 intact."""
+    return set(re.findall(r"[a-z0-9]+", value.lower()))
+
+
+def _matches_size(listing_size: str, requested_size: str) -> bool:
+    requested_tokens = _tokens(requested_size)
+    listing_tokens = _tokens(listing_size)
+    return bool(requested_tokens & listing_tokens)
 
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
@@ -78,8 +92,31 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    keywords = _tokens(description)
+    matches: list[tuple[int, dict]] = []
+
+    for listing in load_listings():
+        if max_price is not None and listing["price"] > max_price:
+            continue
+        if size and not _matches_size(listing["size"], size):
+            continue
+
+        searchable = " ".join(
+            [
+                listing["title"],
+                listing["description"],
+                listing["category"],
+                " ".join(listing["style_tags"]),
+                " ".join(listing["colors"]),
+                listing.get("brand") or "",
+            ]
+        )
+        score = len(keywords & _tokens(searchable))
+        if score:
+            matches.append((score, listing))
+
+    matches.sort(key=lambda match: match[0], reverse=True)
+    return [listing for _, listing in matches[: config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +149,31 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    items = wardrobe.get("items", [])
+    item_details = json.dumps(new_item, ensure_ascii=False)
+
+    if items:
+        wardrobe_details = json.dumps(items, ensure_ascii=False)
+        prompt = (
+            "Suggest one or two wearable outfits using this thrift listing and "
+            "the user's existing wardrobe. Name the wardrobe pieces you use, "
+            "and keep the advice practical.\n\n"
+            f"New listing:\n{item_details}\n\n"
+            f"Wardrobe:\n{wardrobe_details}"
+        )
+    else:
+        prompt = (
+            "Suggest one or two practical outfit ideas for this thrift listing. "
+            "The user has an empty wardrobe, so give general styling advice "
+            "and mention useful types of pieces, colors, or shoes to pair with "
+            "it.\n\n"
+            f"New listing:\n{item_details}"
+        )
+
+    return generate(
+        prompt,
+        system="Give concise, specific outfit suggestions in a non-empty response.",
+    )
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +212,18 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit.strip():
+        return "No outfit suggestion was available, so a fit card could not be created."
+
+    prompt = (
+        "Write a short social media caption for this thrift find. Make it two "
+        "to four sentences, sound natural, mention the item's title, price, "
+        "and platform once each, and describe the outfit vibe. Do not write a "
+        "generic product listing.\n\n"
+        f"Item:\n{json.dumps(new_item, ensure_ascii=False)}\n\n"
+        f"Outfit suggestion:\n{outfit}"
+    )
+    return generate(
+        prompt,
+        system="Write a concise caption someone would actually post.",
+    )

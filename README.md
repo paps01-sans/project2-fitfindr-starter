@@ -120,18 +120,18 @@ $ python app.py ask '...'
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+$ python -c "from tools import search_listings; print([(x['id'], x['price']) for x in search_listings('graphic tee', max_price=30)])"
+[('lst_002', 18.0), ('lst_006', 24.0), ('lst_017', 15.0), ('lst_033', 19.0), ('lst_011', 27.0), ('lst_015', 26.0)]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
-
+$ python -c "import tools; from utils.data_loader import load_listings, get_example_wardrobe; tools.generate=lambda prompt, **kwargs: 'OUTFIT: use the white ribbed tank with the jeans'; print(tools.suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+OUTFIT: use the white ribbed tank with the jeans
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
-
+$ python -c "import tools; from utils.data_loader import load_listings; tools.generate=lambda prompt, **kwargs: 'CAPTION: vintage denim find with a casual streetwear vibe'; print(tools.create_fit_card('jeans and white sneakers', load_listings()[0]))"
+CAPTION: vintage denim find with a casual streetwear vibe
 ```
 
 ---

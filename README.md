@@ -45,7 +45,9 @@ FitFindr lets a user describe a thrift item they want, including a size and
 maximum price. It searches the listings data, chooses a matching item, and
 uses the user's wardrobe to suggest an outfit. It then turns the outfit idea
 into a short fit card caption. If the search finds nothing, it stops early and
-tells the user what they can change.
+tells the user what they can change. As a stretch feature, it also compares the
+selected item's price with similar listings.
+
 ---
 
 ## Tool Inventory
@@ -81,6 +83,13 @@ tells the user what they can change.
 - **Returns:** A two-to-four sentence string that mentions the item, price, platform, and outfit vibe.
 - **When it has nothing:** If `outfit` is empty or only whitespace, returns a descriptive message instead of calling the model.
 
+### `compare_price` (stretch feature)
+
+- **What it does:** Compares a selected listing's price with similar listings in the same category that share at least one style tag.
+- **Inputs:** `new_item` (dict) with `id`, `category`, `style_tags`, and numeric `price` fields.
+- **Returns:** A dict containing the listing price, average comparable price, price difference, verdict (`below average`, `fairly priced`, or `above average`), and comparable count.
+- **When it has nothing:** Returns a dict with `status` set to `unavailable`, a message, the listing price, and a comparable count of `0`.
+
 ---
 
 ## Planning Loop
@@ -102,7 +111,7 @@ tells the user what they can change.
 
 **How the query is parsed:** A regular expression extracts an optional dollar amount after `under` or `below`, and an optional size after `size` or `in size`. The remaining words become the description.
 
-**What moves through the session:** The query is parsed into `session["parsed"]`, then the results go into `session["search_results"]`. The first result moves into `session["selected_item"]`, then it and `session["wardrobe"]` go to `suggest_outfit`. Its string goes into `session["outfit_suggestion"]`, then moves with the selected item into `create_fit_card`, whose result goes into `session["fit_card"]`.
+**What moves through the session:** The query is parsed into `session["parsed"]`, then the results go into `session["search_results"]`. The first result moves into `session["selected_item"]`, then goes to `compare_price` and its result goes into `session["price_comparison"]`. The selected item and `session["wardrobe"]` then go to `suggest_outfit`. Its string goes into `session["outfit_suggestion"]`, then moves with the selected item into `create_fit_card`, whose result goes into `session["fit_card"]`.
 
 Someone else could build these tools from this spec because the input types, output fields, size matching rule, empty cases, query parsing, and session handoffs are defined.
 
@@ -137,6 +146,11 @@ OUTFIT: use the white ribbed tank with the jeans
 ```
 $ python -c "import tools; from utils.data_loader import load_listings; tools.generate=lambda prompt, **kwargs: 'CAPTION: vintage denim find with a casual streetwear vibe'; print(tools.create_fit_card('jeans and white sneakers', load_listings()[0]))"
 CAPTION: vintage denim find with a casual streetwear vibe
+```
+
+```
+$ python -c "from tools import compare_price; from utils.data_loader import load_listings; print(compare_price(load_listings()[0]))"
+{'status': 'compared', 'listing_price': 38.0, 'average_comparable_price': 27.75, 'difference': 10.25, 'verdict': 'above average', 'comparable_count': 8}
 ```
 
 ---

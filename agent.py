@@ -16,7 +16,7 @@ Build and test your three tools in `tools.py` first. Then come here.
 import config
 import re
 import trace
-from tools import search_listings, suggest_outfit, create_fit_card
+from tools import compare_price, search_listings, suggest_outfit, create_fit_card
 from generate import ModelUnavailable
 
 
@@ -41,6 +41,7 @@ def new_session(query: str, wardrobe: dict) -> dict:
         "parsed": {},                # description / size / max_price you pulled out of it
         "search_results": [],        # everything search_listings returned
         "selected_item": None,       # the one you chose — goes into suggest_outfit
+        "price_comparison": None,    # comparison with similar listings
         "wardrobe": wardrobe,        # the user's wardrobe
         "outfit_suggestion": None,   # what suggest_outfit returned
         "fit_card": None,            # what create_fit_card returned
@@ -151,6 +152,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     session["selected_item"] = session["search_results"][0]
 
     try:
+        session["price_comparison"] = compare_price(session["selected_item"])
         session["outfit_suggestion"] = suggest_outfit(
             session["selected_item"],
             session["wardrobe"],

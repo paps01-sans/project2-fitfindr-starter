@@ -1,5 +1,5 @@
 """
-The three FitFindr tools.
+The four FitFindr tools.
 
 Each one is a standalone function you can call and test on its own, before any
 of them are wired into the loop. Build and test them one at a time — three
@@ -9,6 +9,7 @@ can't tell which layer is lying to you.
     search_listings(description, size, max_price)  → list[dict]
     suggest_outfit(new_item, wardrobe)             → str
     create_fit_card(outfit, new_item)              → str
+    compare_price(new_item)                        → dict
 
 All three are stubs right now. They run and they do nothing — that's the
 starting position and it's deliberate.
@@ -37,6 +38,49 @@ def _matches_size(listing_size: str, requested_size: str) -> bool:
     requested_tokens = _tokens(requested_size)
     listing_tokens = _tokens(listing_size)
     return bool(requested_tokens & listing_tokens)
+
+
+def compare_price(new_item: dict) -> dict:
+    """Compare an item's price with similar listings in the dataset."""
+    item_tags = set(new_item.get("style_tags", []))
+    comparable = []
+
+    for listing in load_listings():
+        if listing["id"] == new_item.get("id"):
+            continue
+        if listing["category"] != new_item.get("category"):
+            continue
+        if item_tags and not item_tags.intersection(listing["style_tags"]):
+            continue
+        comparable.append(listing)
+
+    if not comparable:
+        return {
+            "status": "unavailable",
+            "message": "There are not enough similar listings to compare this price.",
+            "listing_price": new_item.get("price"),
+            "comparable_count": 0,
+        }
+
+    average_price = sum(item["price"] for item in comparable) / len(comparable)
+    listing_price = float(new_item["price"])
+    difference = listing_price - average_price
+
+    if difference <= -2:
+        verdict = "below average"
+    elif difference >= 2:
+        verdict = "above average"
+    else:
+        verdict = "fairly priced"
+
+    return {
+        "status": "compared",
+        "listing_price": listing_price,
+        "average_comparable_price": round(average_price, 2),
+        "difference": round(difference, 2),
+        "verdict": verdict,
+        "comparable_count": len(comparable),
+    }
 
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────

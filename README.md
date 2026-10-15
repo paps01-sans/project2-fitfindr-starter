@@ -182,6 +182,17 @@ $ python -c "from tools import compare_price; from utils.data_loader import load
 - _What I changed:_ I added token-based size matching to `search_listings` and
   checked the empty-search branch separately from the successful path.
 
+**Moment 3**
+
+- _What I asked for:_ I asked Copilot to help me test the MCP move and run all
+  five criteria five times with caching turned off.
+- _What came back:_ The MCP search worked, the empty-search and price-limit
+  criteria passed, but the model rejected the API key on every model-backed
+  run.
+- _What I changed:_ I added trace steps and clear failure messages, then added
+  a deterministic fallback fit card when the model is unavailable. I ran the
+  full test again and recorded both results instead of hiding the failures.
+
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
      Don't fill these in during unit 3.
@@ -487,6 +498,29 @@ Y2K Baby Tee — Butterfly Print at $18.0 from depop makes an easy everyday look
 <!-- For each criterion still missed: what you'd do, and why you stopped where
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
+
+Criterion 1 is still missed. The matching query did not complete all three
+actual tool calls because the model failed before `suggest_outfit` and
+`create_fit_card`. The fallback creates replacement text, but it does not count
+as running those tools. I would fix this by making the model-backed tools
+handle `ModelUnavailable` themselves and return their normal output shape, or
+by giving them a local non-model fallback implementation. I stopped after one
+improvement because the assignment asks for one measured change, and the
+fallback already improved criterion 4.
+
+Criterion 3 is still not fully verified. The selected item was set correctly,
+but `suggest_outfit` never received `new_item` during the failed model runs, so
+there was no real cross-tool handoff to compare. I would add a test hook or a
+successful model run and then record the selected item id at the actual tool
+boundary. I stopped because the API key problem prevented that observation,
+and changing the evaluation to pretend the handoff happened would not be
+honest.
+
+The MCP move itself worked. `search_listings` is registered in
+`mcp_server.py`, and `agent.py::run_agent` now calls it through
+`mcp_client.call_tool`. The returned listing data and the price-limit behavior
+matched the direct tool call, so I did not see a behavior change from moving
+that tool to MCP.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 

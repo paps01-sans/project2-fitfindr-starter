@@ -202,14 +202,97 @@ $ python -c "from tools import compare_price; from utils.data_loader import load
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 | --------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
-| 1.        |        |       |       |       |       |       |         |
-| 2.        |        |       |       |       |       |       |         |
-| 3.        |        |       |       |       |       |       |         |
-| 4.        |        |       |       |       |       |       |         |
-| 5.        |        |       |       |       |       |       |         |
+| 1. Matching query completes all three tools | 4 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5) |
+| 2. Impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item stays consistent across tools | 5 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5) |
+| 4. Fit cards include the important listing details | 4 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5) |
+| 5. Search results respect the price limit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
 **Real output from one try**, pasted as text, naming the file and function
 that produced it:
+
+**Criterion 1 — `results/run_2026-10-14_2135_before.md`, produced by
+`run_eval.py::main` calling `agent.py::run_agent`:**
+
+```text
+- stopped early: yes — The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 10
+
+[1] search_listings (via MCP)
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+[2] compare_price
+[3] model
+      out: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.goo…
+      →    model unavailable: stopping with an actionable message
+```
+
+**Criterion 2 — `results/run_2026-10-14_2135_before.md`, produced by
+`run_eval.py::main` calling `agent.py::run_agent`:**
+
+```text
+- stopped early: yes — No listings matched. Try changing the description, size, or maximum price.
+- selected_item: (none)
+- search_results: 0
+
+[1] search_listings (via MCP)
+      out: [] (empty)
+[2] branch
+      out: No listings matched. Try changing the description, size, or maximum price.
+      →    empty search: stopping before outfit tools
+```
+
+**Criterion 3 — `results/run_2026-10-14_2135_before.md`, produced by
+`run_eval.py::main` calling `agent.py::run_agent`:**
+
+```text
+- stopped early: yes — The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+- selected_item: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+- search_results: 4
+
+[1] search_listings (via MCP)
+      out: 4 items: 90s Track Jacket — Navy/White Stripe, 90s Leather Bomber — Black, 90s Silk Slip Dress — Floral, Midi Length … +1 more
+[2] compare_price
+      in:  90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+[3] model
+      →    model unavailable: stopping with an actionable message
+```
+
+The handoff could not be observed because `suggest_outfit` was never reached;
+the model failure stopped the run after `compare_price`.
+
+**Criterion 4 — `results/run_2026-10-14_2135_before.md`, produced by
+`run_eval.py::main` calling `agent.py::run_agent`:**
+
+```text
+- stopped early: yes — The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 10
+
+Fit card: (not produced)
+
+[3] model
+      out: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.goo…
+      →    model unavailable: stopping with an actionable message
+```
+
+**Criterion 5 — `results/run_2026-10-14_2135_before.md`, produced by
+`run_eval.py::main` calling `agent.py::run_agent`:**
+
+```text
+- Query: graphic tee under $30
+- stopped early: yes — The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 6
+
+[1] search_listings (via MCP)
+      out: 6 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Mesh Long-Sleeve Top — Black … +3 more
+```
+
+The search tool returned six results on each of the five tries; the direct
+MCP search check for the same `$30` limit returned prices
+`18.0, 24.0, 15.0, 19.0, 27.0, and 26.0`, so every result respected the
+inclusive ceiling.
 
 ```
 

@@ -320,13 +320,41 @@ inclusive ceiling.
 
 | #   | Criterion | Target | Verdict | How I decided |
 | --- | --------- | ------ | ------- | ------------- |
-| 1   |           |        |         |               |
-| 2   |           |        |         |               |
-| 3   |           |        |         |               |
-| 4   |           |        |         |               |
-| 5   |           |        |         |               |
+| 1   | Matching query completes all three tools | 4 of 5 | MISSED (0/5) | All five matching runs reached MCP search and `compare_price`, but the model rejected the API key before `suggest_outfit` and `create_fit_card`, so none completed all three tools. |
+| 2   | Impossible query stops before the second tool | 5 of 5 | MET (5/5) | All five impossible queries returned an empty MCP result and the trace ended at the empty-search branch before any outfit tool. |
+| 3   | Selected item stays consistent across tools | 5 of 5 | MISSED (0/5 observable) | The selected item was present in all five sessions, but `suggest_outfit` was never reached because the model failed first, so the required cross-tool handoff could not be verified in any try. |
+| 4   | Fit cards include the important listing details | 4 of 5 | MISSED (0/5) | No fit card was produced in any try because the first model-backed tool stopped on the rejected API key. |
+| 5   | Search results respect the price limit | 5 of 5 | MET (5/5) | The MCP search returned six results in each try, and the recorded prices were all at or below the inclusive `$30` limit. |
 
 **Diagnoses**
+
+**Criterion 1 — MISSED:** This failed at the model step in
+`agent.py::run_agent`, after the MCP `search_listings` tool and
+`compare_price` had succeeded. The `generate()` adapter raised
+`ModelUnavailable` because the API key was rejected, so the loop's model
+handler set `session["error"]` and stopped before `suggest_outfit`; therefore
+the run could not reach `create_fit_card`. This same mechanism caused all five
+misses.
+
+**Criterion 3 — MISSED:** This was not evidence that the selected item changed.
+The session consistently selected the expected listing, but the failure
+happened at the model step before `suggest_outfit` received `new_item`.
+Because the handoff was never executed, the criterion's required comparison
+between `session["selected_item"]` and the tool input was unobservable in all
+five tries. The problem is the model-service failure path, not the search
+branch or the session assignment.
+
+**Criterion 4 — MISSED:** This failed at the model step before the
+`create_fit_card` tool. The rejected API key caused `suggest_outfit` to raise
+`ModelUnavailable`, so the loop stored an error and left
+`session["fit_card"]` as `None`. Since no caption existed, it could not
+contain the required title, price, platform, or two-to-four sentence format.
+All five misses share this same model-output failure.
+
+Criteria 2 and 5 were met, so there was no miss to diagnose for either one.
+I did not revise any criterion: the targets were measurable and the failed
+criteria were genuinely unmet or unobservable under the recorded model
+failure, rather than incorrectly worded.
 
 ---
 

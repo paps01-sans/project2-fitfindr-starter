@@ -17,7 +17,7 @@ import config
 import re
 import trace
 from tools import compare_price, suggest_outfit, create_fit_card
-from mcp_client import call_tool
+from mcp_client import MCPError, call_tool
 from generate import ModelUnavailable
 
 
@@ -138,18 +138,39 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     iteration = 1
     trace.check_iterations(iteration)
     parsed = session["parsed"]
-    session["search_results"] = call_tool(
-        "search_listings",
-        {
-            "description": parsed["description"],
-            "size": parsed["size"],
-            "max_price": parsed["max_price"],
-        },
+    search_inputs = {
+        "description": parsed["description"],
+        "size": parsed["size"],
+        "max_price": parsed["max_price"],
+    }
+    try:
+        session["search_results"] = call_tool("search_listings", search_inputs)
+    except MCPError as exc:
+        session["error"] = (
+            "The search service could not be reached. Check the MCP server and "
+            f"try again. Details: {exc}"
+        )
+        trace.step(
+            "search_listings (via MCP)",
+            inputs=search_inputs,
+            returned=session["error"],
+            note="MCP failure: stopping with an actionable message",
+        )
+        return session
+    trace.step(
+        "search_listings (via MCP)",
+        inputs=search_inputs,
+        returned=session["search_results"],
     )
 
     if not session["search_results"]:
         session["error"] = (
             "No listings matched. Try changing the description, size, or maximum price."
+        )
+        trace.step(
+            "branch",
+            returned=session["error"],
+            note="empty search: stopping before outfit tools",
         )
         return session
 
@@ -157,17 +178,42 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
     try:
         session["price_comparison"] = compare_price(session["selected_item"])
+        trace.step(
+            "compare_price",
+            inputs=session["selected_item"],
+            returned=session["price_comparison"],
+        )
         session["outfit_suggestion"] = suggest_outfit(
             session["selected_item"],
             session["wardrobe"],
+        )
+        trace.step(
+            "suggest_outfit",
+            inputs={
+                "new_item": session["selected_item"],
+                "wardrobe": session["wardrobe"],
+            },
+            returned=session["outfit_suggestion"],
         )
         session["fit_card"] = create_fit_card(
             session["outfit_suggestion"],
             session["selected_item"],
         )
+        trace.step(
+            "create_fit_card",
+            inputs={
+                "outfit": session["outfit_suggestion"],
+                "new_item": session["selected_item"],
+            },
+            returned=session["fit_card"],
+        )
     except ModelUnavailable as exc:
         session["error"] = str(exc)
-
+        trace.step(
+            "model",
+            returned=session["error"],
+            note="model unavailable: stopping with an actionable message",
+        )
     return session
 
 

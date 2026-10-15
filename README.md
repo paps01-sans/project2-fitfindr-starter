@@ -262,19 +262,51 @@ that produced it:
 **Happy path**
 
 ```
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+[2] compare_price
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: dict with keys: status, listing_price, average_comparable_price, difference, verdict, comparable_count
+[3] suggest_outfit
+      in:  dict with keys: new_item, wardrobe
+      out: General styling advice for the item.
+[4] create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: General styling advice for the item.
 
 ```
 
 **Empty search**
 
 ```
+[1] search_listings (via MCP)
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+[2] branch
+      out: No listings matched. Try changing the description, size, or maximum price.
+      →    empty search: stopping before outfit tools
 
 ```
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
+**Failure checks**
+
+- Empty search: `designer ballgown size XXS under $5` returned
+  `No listings matched. Try changing the description, size, or maximum price.`
+  and stopped before the outfit tools.
+- Empty wardrobe: running with `get_empty_wardrobe()` returned
+  `General styling advice for the item.` rather than crashing or returning an
+  empty string.
+- Model unavailable: I deliberately replaced the model adapter with a
+  `ModelUnavailable` failure. The agent returned
+  `The model could not be reached. Check your API key and try again.` rather
+  than exposing a stack trace.
+
+**On the MCP move:** `search_listings` is registered in `mcp_server.py` and
+`agent.py::run_agent` calls it through `mcp_client.call_tool`. The MCP call
+returned the same list of listing dictionaries as the direct call, and the
+normal path still completed. The trace labels the call as
+`search_listings (via MCP)`.
 
 ---
 

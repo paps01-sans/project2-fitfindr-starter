@@ -209,10 +209,19 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         )
     except ModelUnavailable as exc:
         session["error"] = str(exc)
+        item = session["selected_item"]
+        session["outfit_suggestion"] = (
+            f"Try styling the {item['title']} with simple neutral layers "
+            "and comfortable shoes."
+        )
+        session["fit_card"] = (
+            f"{item['title']} at ${item['price']} from {item['platform']} makes "
+            "an easy everyday look. Pair it with simple layers for a casual vibe."
+        )
         trace.step(
             "model",
             returned=session["error"],
-            note="model unavailable: stopping with an actionable message",
+            note="model unavailable: using deterministic fallback content",
         )
     return session
 

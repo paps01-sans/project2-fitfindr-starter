@@ -430,19 +430,52 @@ normal path still completed. The trace labels the call as
 
 **What I changed:**
 
+I changed one place in `agent.py::run_agent`: when `ModelUnavailable` is raised,
+the existing API-key error remains in `session["error"]`, but the agent now
+creates deterministic fallback outfit advice and a two-sentence fit card from
+the selected listing's title, price, and platform.
+
 **Which failure it was meant to fix:**
+
+The before run reached MCP search and `compare_price`, then stopped before
+`suggest_outfit` and `create_fit_card` because the API key was rejected. The
+fallback keeps the output contract usable while still telling the user the
+model was unavailable.
 
 ### Run Log — After
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 | --------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
-| 1.        |        |       |       |       |       |       |         |
-| 2.        |        |       |       |       |       |       |         |
-| 3.        |        |       |       |       |       |       |         |
-| 4.        |        |       |       |       |       |       |         |
-| 5.        |        |       |       |       |       |       |         |
+| 1. Matching query completes all three tools | 4 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5) |
+| 2. Impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. Selected item stays consistent across tools | 5 of 5 | FAIL | FAIL | FAIL | FAIL | FAIL | MISSED (0/5 observable) |
+| 4. Fit cards include the important listing details | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Search results respect the price limit | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
 **Did it help, and how do I know:**
+
+Partly. Criterion 4 improved from 0/5 to 5/5 because the fallback supplied a
+two-sentence fit card containing the selected title, price, and platform.
+Criteria 2 and 5 stayed at 5/5, so the change did not disturb the existing
+branch or price filtering. Criterion 1 remained missed because the fallback
+does not make the two model tools run; it supplies replacement output after
+`ModelUnavailable`. Criterion 3 remained unobservable because
+`suggest_outfit` still was not called with `new_item`.
+
+The complete after-run report is
+`results/run_2026-10-15_0138_after.md`, produced by
+`run_eval.py::main` with five tries per scenario and caching disabled. One
+matching-criterion try recorded:
+
+```text
+- stopped early: yes — The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+- search_results: 10
+Fit card:
+Y2K Baby Tee — Butterfly Print at $18.0 from depop makes an easy everyday look. Pair it with simple layers for a casual vibe.
+[3] model
+      →    model unavailable: using deterministic fallback content
+```
 
 <!-- If it made things worse, say that. Honestly reported, that earns full
      credit and is more interesting than one that worked. -->

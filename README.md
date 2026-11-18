@@ -128,6 +128,21 @@ with `config.CACHE_ENABLED=False`. The generated machine-readable report is
 | C4. Rejected input is logged | 5/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
 | C5. Price comparison is visible | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
 
+**Before improvement — Verdicts**
+
+- C1 — MET: 5/5 matching browser searches returned and rendered results in
+  each of three trials.
+- C2 — MET: the add/edit/remove, reload-persistence, and `/ask` payload checks
+  passed 5/5 in each trial.
+- C3 — MISSED: 0/5 save/share checks passed in each trial. The stage was the
+  browser presentation layer: result and recommendation views had no
+  saved-listing state or copy/share actions. The mechanism was missing
+  implementation, not a bug in search or session data.
+- C4 — MET: all five malformed payload variants returned 400 and logged once
+  in each trial.
+- C5 — MET: price comparison was produced and visible in all five checked
+  searches in each trial.
+
 ### Real output for C1 — Browser search
 
 Produced by `run_capstone_tests.py::c1_search_trial`, calling
@@ -188,6 +203,41 @@ Produced by `run_capstone_tests.py::c5_price_trial`, calling
 {"listing":"Silk Slip Dress","status":"compared","average":31.86,"difference":-1.86,"verdict":"fairly priced","count":7}
 {"listing":"Platform Sneakers","status":"compared","average":37.5,"difference":10.5,"verdict":"above average","count":2}
 ```
+
+### Improvement and After Run
+
+**The improvement:** I added the saved-listings and sharing layer only.
+
+The change adds `fitfindr-saved-listings` persistence, Save/Unsave controls on
+result cards, a saved-listings panel that survives reloads, Copy Caption, and
+Share Fit using the browser Share API with a clipboard fallback.
+
+**Which miss it fixes:** C3 — the browser had no save/share implementation.
+The missed stage was rendering and interaction, not the agent. The fix binds
+saved IDs to existing listing cards and reconstructs the share text from the
+current selected listing, outfit suggestion, and fit card.
+
+**After run — three trials**
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| C1. Browser search renders full result set | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+| C2. Wardrobe edits survive reload | 5/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+| C3. Saved listings and sharing preserve the fit | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+| C4. Rejected input is logged | 5/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+| C5. Price comparison is visible | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+
+Real output for C3 after the improvement:
+
+```json
+{"lst_002":true,"lst_007":true,"lst_004":true,"lst_013":true,"lst_019":true}
+```
+
+**Did it help:** C3 changed from MISSED (0/5 in all three trials) to MET
+(5/5 in all three trials). C1, C2, C4, and C5 remained MET. No worse behavior
+was observed in this test set. The tradeoff is that saved items are
+browser-local; they do not sync across devices or survive browser storage
+clearing, which is intentional for the database-free MVP scope.
 
 ---
 

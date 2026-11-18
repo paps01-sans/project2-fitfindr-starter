@@ -2,6 +2,8 @@ let currentResults = [];
 let latestSession = null;
 
 const wardrobeKey = "fitfindr-wardrobe";
+const savedKey = "fitfindr-saved-listings";
+let savedIds = loadJson(savedKey, []);
 const exampleWardrobe = {
   items: [
     { id: "w_ui_001", name: "White ribbed tank top", category: "tops", colors: ["white"], style_tags: ["minimal", "basics"], notes: "Goes with everything" },
@@ -107,6 +109,10 @@ function renderSession(session) {
         <div class="detail-block">
           <h3>Fit card</h3>
           <p>${escapeHtml(session.fit_card || "Fit card unavailable.")}</p>
+          <div class="card-actions">
+            <button class="small-button" type="button" data-copy-caption>Copy caption</button>
+            <button class="small-button" type="button" data-share>Share fit</button>
+          </div>
         </div>
         ${comparison ? `
           <div class="detail-block">
@@ -118,10 +124,14 @@ function renderSession(session) {
       </div>
     </div>`;
 
+  recommendation.querySelector("[data-copy-caption]").addEventListener("click", copyCaption);
+  recommendation.querySelector("[data-share]").addEventListener("click", shareFit);
+
   currentResults = session.search_results || [];
   document.querySelector("#results-section").hidden = false;
   document.querySelector("#category-filter").value = "";
   renderResults();
+  renderSaved();
 }
 
 function renderResults() {
@@ -132,6 +142,7 @@ function renderResults() {
 
   document.querySelector("#results").innerHTML = filtered.map(item => {
     const selected = latestSession?.selected_item?.id === item.id;
+    const isSaved = savedIds.includes(item.id);
     return `
       <article class="result-card ${selected ? "selected" : ""}">
         <p class="eyebrow">${escapeHtml(item.category)} · ${escapeHtml(item.condition)}</p>
@@ -139,11 +150,93 @@ function renderResults() {
         <p class="price">$${item.price}</p>
         <p>${escapeHtml(item.brand || "Unknown brand")} · ${escapeHtml(item.size)}</p>
         <p>${escapeHtml(item.platform)} · ${escapeHtml((item.colors || []).join(", "))}</p>
+        <div class="card-actions">
+          <button class="small-button ${isSaved ? "saved" : ""}" type="button" data-save-id="${escapeHtml(item.id)}">
+            ${isSaved ? "Saved" : "Save"}
+          </button>
+        </div>
       </article>`;
   }).join("") || "<p>No listings in this category.</p>";
+
+  document.querySelector("#results").querySelectorAll("[data-save-id]").forEach(button => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.saveId;
+      savedIds = savedIds.includes(id)
+        ? savedIds.filter(savedId => savedId !== id)
+        : [...savedIds, id];
+      saveJson(savedKey, savedIds);
+      renderResults();
+      renderSaved();
+      setStatus(savedIds.includes(id) ? "Listing saved." : "Listing removed.");
+    });
+  });
 }
 
 document.querySelector("#category-filter").addEventListener("change", renderResults);
+
+function getShareText() {
+  if (!latestSession?.selected_item) return "";
+  const item = latestSession.selected_item;
+  return `${item.title} — $${item.price} on ${item.platform}\n\nOutfit: ${latestSession.outfit_suggestion}\n\n${latestSession.fit_card}`;
+}
+
+async function copyCaption() {
+  if (!latestSession?.fit_card) return;
+  try {
+    await navigator.clipboard.writeText(latestSession.fit_card);
+    setStatus("Fit-card caption copied.");
+  } catch {
+    setStatus("Could not access the clipboard.", "error");
+  }
+}
+
+async function shareFit() {
+  const text = getShareText();
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "My FitFindr look", text });
+      return;
+    } catch (error) {
+      if (error.name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("Share text copied.");
+  } catch {
+    setStatus("Could not access the clipboard.", "error");
+  }
+}
+
+function renderSaved() {
+  const container = document.querySelector("#saved-results");
+  if (!savedIds.length) {
+    container.innerHTML = "<p>Saved listings will appear here.</p>";
+    return;
+  }
+
+  const saved = (latestSession?.search_results || []).filter(item => savedIds.includes(item.id));
+  const knownIds = new Set(saved.map(item => item.id));
+  const missingIds = savedIds.filter(id => !knownIds.has(id));
+  container.innerHTML =
+    saved.map(item => `
+      <article class="result-card">
+        <p class="eyebrow">${escapeHtml(item.category)} · ${escapeHtml(item.condition)}</p>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p class="price">$${item.price}</p>
+        <p>${escapeHtml(item.platform)} · ${escapeHtml(item.size)}</p>
+      </article>
+    `).join("") +
+    missingIds.map(id => `
+      <article class="result-card">
+        <p class="eyebrow">Saved</p>
+        <h3>${escapeHtml(id)}</h3>
+        <p>Search again to view details.</p>
+      </article>
+    `).join("");
+}
+
+renderSaved();
 
 function splitList(value) {
   return value

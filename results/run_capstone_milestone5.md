@@ -1,14 +1,14 @@
 # Capstone Milestone 5 — Three Trials
 
 - Produced by: `run_capstone_tests.py::main`
-- Tested: 2026-11-18T16:17:13.114509
+- Tested: 2026-11-18T16:28:29.436937
 - Cache: disabled
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
 | C1. Browser search renders full result set | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
 | C2. Wardrobe edits survive reload | 5/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
-| C3. Saved listings and sharing preserve the fit | 4/5 | FAIL (0/5) | FAIL (0/5) | FAIL (0/5) | MISSED |
+| C3. Saved listings and sharing preserve the fit | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
 | C4. Rejected input is logged | 5/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
 | C5. Price comparison is visible | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
 
@@ -75,14 +75,14 @@
 
 ```json
 {
-  "passes": 0,
+  "passes": 5,
   "target": 4,
   "details": {
-    "lst_002": false,
-    "lst_007": false,
-    "lst_004": false,
-    "lst_013": false,
-    "lst_019": false
+    "lst_002": true,
+    "lst_007": true,
+    "lst_004": true,
+    "lst_013": true,
+    "lst_019": true
   }
 }
 ```

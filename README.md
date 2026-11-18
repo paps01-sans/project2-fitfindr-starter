@@ -50,6 +50,28 @@ selected item's price with similar listings.
 
 ---
 
+## The Shape
+
+**System:** FitFindr, the existing thrift-listing search and outfit-recommendation agent.
+
+**Shape:** C — Extend one capability. I am adding an interactive browser
+workspace for the agent: a user can submit natural-language queries with size
+and budget filters, inspect every returned listing and price comparison, edit
+a wardrobe in the browser, save listings, and copy or share a generated fit
+card. The extension is the end-to-end browser capability over the existing
+`POST /ask` run path; the agent, MCP search, listing data, and recommendation
+logic stay in place rather than being rebuilt.
+
+**Out of scope:** I am not adding accounts or server-side favorites; I am not
+adding database persistence or live marketplace scraping; and I am not
+replacing Flask or rebuilding the agent in React/Next.js. The MVP remains
+database-free with `localStorage`, and alternate-listing outfit re-runs stay
+out unless a later milestone has time. The core browser implementation is
+small enough to fit the ninety-minute build limit before deployment and
+testing.
+
+---
+
 ## Tool Inventory
 
 <!-- Four lines per tool. This is worth 2 points and it's the single most

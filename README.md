@@ -114,6 +114,83 @@ runtime cost, not a cost estimate from a pricing page.
 
 ---
 
+## Capstone Milestone 5 — Run Log
+
+`run_capstone_tests.py::main` ran the five capstone criteria three times each,
+with `config.CACHE_ENABLED=False`. The generated machine-readable report is
+`results/run_capstone_milestone5.md`.
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| C1. Browser search renders full result set | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+| C2. Wardrobe edits survive reload | 5/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+| C3. Saved listings and sharing preserve the fit | 4/5 | FAIL (0/5) | FAIL (0/5) | FAIL (0/5) | MISSED |
+| C4. Rejected input is logged | 5/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+| C5. Price comparison is visible | 4/5 | PASS (5/5) | PASS (5/5) | PASS (5/5) | MET |
+
+### Real output for C1 — Browser search
+
+Produced by `run_capstone_tests.py::c1_search_trial`, calling
+`serve.py::ask` and `agent.py::run_agent`:
+
+```json
+{"query":"vintage graphic tee under $30","status":200,"pass":true,"search_count":10}
+{"query":"denim jacket under $50","status":200,"pass":true,"search_count":7}
+{"query":"90s track jacket in size M","status":200,"pass":true,"search_count":4}
+{"query":"silk slip dress in midi length under $40","status":200,"pass":true,"search_count":10}
+{"query":"platform sneakers size 8","status":200,"pass":true,"search_count":1}
+```
+
+### Real output for C2 — Wardrobe persistence
+
+Produced by `run_capstone_tests.py::c2_wardrobe_trial`, checking
+`static/app.js` and `templates/index.html`:
+
+```json
+{"add item":true,"edit item":true,"remove item":true,"reload persistence":true,"ask payload":true}
+```
+
+### Real output for C3 — Saved listings and sharing
+
+Produced by `run_capstone_tests.py::c3_saved_share_trial`, checking
+`static/app.js` and `templates/index.html`:
+
+```json
+{"lst_002":false,"lst_007":false,"lst_004":false,"lst_013":false,"lst_019":false}
+```
+
+This run found the feature absent: no saved-localStorage key, save action,
+saved panel, copy-caption action, or Web Share implementation exists in the
+browser code.
+
+### Real output for C4 — Rejected input
+
+Produced by `run_capstone_tests.py::c4_rejected_trial`, calling
+`serve.py::ask`:
+
+```json
+{"payload":null,"status":400,"pass":true}
+{"payload":{},"status":400,"pass":true}
+{"payload":{"query":""},"status":400,"pass":true}
+{"payload":{"query":"   "},"status":400,"pass":true}
+{"payload":{"query":null},"status":400,"pass":true}
+```
+
+### Real output for C5 — Price comparison
+
+Produced by `run_capstone_tests.py::c5_price_trial`, calling
+`agent.py::run_agent` and `tools.py::compare_price`:
+
+```json
+{"listing":"Y2K Baby Tee","status":"compared","average":22.0,"difference":-4.0,"verdict":"below average","count":14}
+{"listing":"Denim Jacket","status":"compared","average":44.29,"difference":-2.29,"verdict":"below average","count":7}
+{"listing":"90s Track Jacket","status":"compared","average":45.67,"difference":-0.67,"verdict":"fairly priced","count":6}
+{"listing":"Silk Slip Dress","status":"compared","average":31.86,"difference":-1.86,"verdict":"fairly priced","count":7}
+{"listing":"Platform Sneakers","status":"compared","average":37.5,"difference":10.5,"verdict":"above average","count":2}
+```
+
+---
+
 ## Tool Inventory
 
 <!-- Four lines per tool. This is worth 2 points and it's the single most

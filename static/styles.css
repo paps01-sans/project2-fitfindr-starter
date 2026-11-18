@@ -24,6 +24,10 @@ body {
 }
 
 .topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 28px 0 16px;
 }
 
@@ -72,6 +76,7 @@ input, select {
   cursor: pointer;
 }
 .button.primary { background: var(--green); color: white; }
+.button.secondary { background: var(--lime); color: var(--ink); }
 .button:disabled { opacity: .55; cursor: wait; }
 .search-card form > .button { margin-top: 18px; }
 
@@ -128,6 +133,64 @@ input, select {
 .result-card h3 { margin: 5px 0 8px; font-size: 1rem; }
 .result-card p { margin: 5px 0; color: #59625d; font-size: .9rem; }
 .result-card .price { color: var(--ink); font-size: 1.15rem; font-weight: 900; }
+
+dialog {
+  width: min(620px, calc(100% - 24px));
+  max-height: 88vh;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--white);
+  color: var(--ink);
+}
+dialog::backdrop { background: rgba(23, 33, 27, .45); }
+dialog textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  padding: 12px 13px;
+  font: inherit;
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.dialog-heading h2 { margin-bottom: 0; }
+.icon-button {
+  border: 0;
+  background: transparent;
+  font-size: 2rem;
+  cursor: pointer;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+.wardrobe-items { display: grid; gap: 8px; margin-top: 18px; }
+.wardrobe-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.wardrobe-item strong { display: block; }
+.wardrobe-item span { color: #697169; font-size: .85rem; }
+.small-button {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 999px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-weight: 750;
+}
 
 @media (max-width: 760px) {
   .search-options, .recommendation-grid { grid-template-columns: 1fr; }

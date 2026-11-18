@@ -1,6 +1,30 @@
 let currentResults = [];
 let latestSession = null;
 
+const wardrobeKey = "fitfindr-wardrobe";
+const exampleWardrobe = {
+  items: [
+    { id: "w_ui_001", name: "White ribbed tank top", category: "tops", colors: ["white"], style_tags: ["minimal", "basics"], notes: "Goes with everything" },
+    { id: "w_ui_002", name: "Dark wash jeans", category: "bottoms", colors: ["dark blue", "indigo"], style_tags: ["denim", "streetwear"], notes: null },
+    { id: "w_ui_003", name: "Chunky white sneakers", category: "shoes", colors: ["white"], style_tags: ["sneakers", "chunky", "streetwear"], notes: null }
+  ]
+};
+
+let wardrobe = loadJson(wardrobeKey, exampleWardrobe);
+
+function loadJson(key, fallback) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key));
+    return value ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -35,7 +59,7 @@ document.querySelector("#search-form").addEventListener("submit", async event =>
     const response = await fetch("/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query })
+      body: JSON.stringify({ query, wardrobe })
     });
     const session = await response.json();
     latestSession = session;
@@ -120,3 +144,111 @@ function renderResults() {
 }
 
 document.querySelector("#category-filter").addEventListener("change", renderResults);
+
+function splitList(value) {
+  return value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+const wardrobeDialog = document.querySelector("#wardrobe-dialog");
+
+document.querySelector("#wardrobe-button").addEventListener("click", () => {
+  renderWardrobe();
+  wardrobeDialog.showModal();
+});
+
+document.querySelector("#close-wardrobe").addEventListener("click", () => {
+  wardrobeDialog.close();
+});
+
+document.querySelector("#wardrobe-form").addEventListener("submit", event => {
+  event.preventDefault();
+
+  const id = document.querySelector("#item-id").value;
+  const name = document.querySelector("#item-name").value.trim();
+  const category = document.querySelector("#item-category").value;
+  const colors = splitList(document.querySelector("#item-colors").value);
+  const styleTags = splitList(document.querySelector("#item-tags").value);
+  const notes = document.querySelector("#item-notes").value.trim() || null;
+
+  if (!name || !colors.length) {
+    setStatus("Add an item name and at least one color.", "error");
+    return;
+  }
+
+  const allowedCategories = ["tops", "bottoms", "outerwear", "shoes", "accessories"];
+  if (!allowedCategories.includes(category)) {
+    setStatus("Choose a valid wardrobe category.", "error");
+    return;
+  }
+
+  const item = {
+    id: id || `w_ui_${Date.now()}`,
+    name,
+    category,
+    colors,
+    style_tags: styleTags,
+    notes
+  };
+
+  const items = wardrobe.items || [];
+  wardrobe = {
+    items: id
+      ? items.map(existing => existing.id === id ? item : existing)
+      : [...items, item]
+  };
+
+  saveJson(wardrobeKey, wardrobe);
+  event.currentTarget.reset();
+  document.querySelector("#item-id").value = "";
+  renderWardrobe();
+  setStatus("Wardrobe saved.");
+});
+
+document.querySelector("#reset-wardrobe").addEventListener("click", () => {
+  wardrobe = structuredClone(exampleWardrobe);
+  saveJson(wardrobeKey, wardrobe);
+  renderWardrobe();
+  setStatus("Example wardrobe restored.");
+});
+
+function renderWardrobe() {
+  const container = document.querySelector("#wardrobe-items");
+  const items = wardrobe.items || [];
+
+  container.innerHTML = items.map(item => `
+    <div class="wardrobe-item">
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <span>${escapeHtml(item.category)} · ${escapeHtml((item.colors || []).join(", "))}</span>
+      </div>
+      <button class="small-button" type="button" data-edit="${escapeHtml(item.id)}">Edit</button>
+      <button class="small-button" type="button" data-remove="${escapeHtml(item.id)}">Remove</button>
+    </div>
+  `).join("") || "<p>Your wardrobe is empty.</p>";
+
+  container.querySelectorAll("[data-edit]").forEach(button => {
+    button.addEventListener("click", () => {
+      const item = items.find(candidate => candidate.id === button.dataset.edit);
+      document.querySelector("#item-id").value = item.id;
+      document.querySelector("#item-name").value = item.name;
+      document.querySelector("#item-category").value = item.category;
+      document.querySelector("#item-colors").value = (item.colors || []).join(", ");
+      document.querySelector("#item-tags").value = (item.style_tags || []).join(", ");
+      document.querySelector("#item-notes").value = item.notes || "";
+    });
+  });
+
+  container.querySelectorAll("[data-remove]").forEach(button => {
+    button.addEventListener("click", () => {
+      wardrobe = {
+        items: items.filter(item => item.id !== button.dataset.remove)
+      };
+      saveJson(wardrobeKey, wardrobe);
+      renderWardrobe();
+      setStatus("Wardrobe item removed.");
+    });
+  });
+}

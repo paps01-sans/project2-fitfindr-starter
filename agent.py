@@ -47,10 +47,52 @@ def new_session(query: str, wardrobe: dict) -> dict:
         "outfit_suggestion": None,   # what suggest_outfit returned
         "fit_card": None,            # what create_fit_card returned
         "error": None,               # set when the run ended early
+        "failed_step": None,         # model/search step that failed, if one did
     }
 
 
 # ── planning loop ─────────────────────────────────────────────────────────────
+
+def parse_query(query: str) -> dict:
+    """Extract a description, size, and optional maximum price from a query."""
+    price_match = re.search(
+        r"\b(?:under|below)\s*(?:\$)?\s*(\d+(?:\.\d+)?)\b",
+        query,
+        flags=re.IGNORECASE,
+    )
+    size_match = re.search(
+        r"\b(?:in\s+)?size\s+([a-z0-9]+(?:/[a-z0-9]+)?)\b",
+        query,
+        flags=re.IGNORECASE,
+    )
+
+    description = query
+    if price_match:
+        description = description.replace(price_match.group(0), "")
+    else:
+        description = re.sub(
+            r"\b(?:under|below)\s*(?:\$)?\s*\d+(?:\.\d+)?\b",
+            "",
+            description,
+            flags=re.IGNORECASE,
+        )
+    if size_match:
+        description = description.replace(size_match.group(0), "")
+    description = re.sub(
+        r"\b(?:looking\s+for|find\s+me|show\s+me)\b",
+        "",
+        description,
+        flags=re.IGNORECASE,
+    )
+    description = re.sub(r"^\s*(?:a|an)\b", "", description, flags=re.IGNORECASE)
+    description = re.sub(r"\s+", " ", description).strip(" ,.")
+
+    return {
+        "description": description,
+        "size": size_match.group(1) if size_match else None,
+        "max_price": float(price_match.group(1)) if price_match else None,
+    }
+
 
 def run_agent(query: str, wardrobe: dict) -> dict:
     """
@@ -110,30 +152,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     """
     session = new_session(query, wardrobe)
 
-    price_match = re.search(
-        r"\b(?:under|below)\s*\$?\s*(\d+(?:\.\d+)?)\b",
-        query,
-        flags=re.IGNORECASE,
-    )
-    size_match = re.search(
-        r"\b(?:in\s+)?size\s+([a-z0-9]+(?:/[a-z0-9]+)?)\b",
-        query,
-        flags=re.IGNORECASE,
-    )
-
-    description = query
-    if price_match:
-        description = description.replace(price_match.group(0), "")
-    if size_match:
-        description = description.replace(size_match.group(0), "")
-    description = re.sub(r"\b(?:looking\s+for|find\s+me|show\s+me)\b", "", description, flags=re.IGNORECASE)
-    description = re.sub(r"\s+", " ", description).strip(" ,.")
-
-    session["parsed"] = {
-        "description": description,
-        "size": size_match.group(1) if size_match else None,
-        "max_price": float(price_match.group(1)) if price_match else None,
-    }
+    session["parsed"] = parse_query(query)
 
     iteration = 1
     trace.check_iterations(iteration)
@@ -150,6 +169,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             "The search service could not be reached. Check the MCP server and "
             f"try again. Details: {exc}"
         )
+        session["failed_step"] = "search_listings"
         trace.step(
             "search_listings (via MCP)",
             inputs=search_inputs,
@@ -167,6 +187,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         session["error"] = (
             "No listings matched. Try changing the description, size, or maximum price."
         )
+        session["failed_step"] = "search_listings"
         trace.step(
             "branch",
             returned=session["error"],
@@ -176,13 +197,14 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
     session["selected_item"] = session["search_results"][0]
 
+    session["price_comparison"] = compare_price(session["selected_item"])
+    trace.step(
+        "compare_price",
+        inputs=session["selected_item"],
+        returned=session["price_comparison"],
+    )
+
     try:
-        session["price_comparison"] = compare_price(session["selected_item"])
-        trace.step(
-            "compare_price",
-            inputs=session["selected_item"],
-            returned=session["price_comparison"],
-        )
         session["outfit_suggestion"] = suggest_outfit(
             session["selected_item"],
             session["wardrobe"],
@@ -195,6 +217,21 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             },
             returned=session["outfit_suggestion"],
         )
+    except ModelUnavailable as exc:
+        session["error"] = str(exc)
+        session["failed_step"] = "suggest_outfit"
+        item = session["selected_item"]
+        session["outfit_suggestion"] = (
+            f"Try styling the {item['title']} with simple neutral layers "
+            "and comfortable shoes."
+        )
+        trace.step(
+            "suggest_outfit",
+            returned=session["error"],
+            note="model unavailable at suggest_outfit: using deterministic fallback",
+        )
+
+    try:
         session["fit_card"] = create_fit_card(
             session["outfit_suggestion"],
             session["selected_item"],
@@ -208,20 +245,18 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             returned=session["fit_card"],
         )
     except ModelUnavailable as exc:
-        session["error"] = str(exc)
+        if session["error"] is None:
+            session["error"] = str(exc)
+            session["failed_step"] = "create_fit_card"
         item = session["selected_item"]
-        session["outfit_suggestion"] = (
-            f"Try styling the {item['title']} with simple neutral layers "
-            "and comfortable shoes."
-        )
         session["fit_card"] = (
             f"{item['title']} at ${item['price']} from {item['platform']} makes "
             "an easy everyday look. Pair it with simple layers for a casual vibe."
         )
         trace.step(
-            "model",
+            "create_fit_card",
             returned=session["error"],
-            note="model unavailable: using deterministic fallback content",
+            note="model unavailable at create_fit_card: using deterministic fallback",
         )
     return session
 

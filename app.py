@@ -114,15 +114,26 @@ def _ask_one(query, wardrobe, use_trace):
     session = run_agent(query, wardrobe)
 
     print()
-    if session["error"]:
+    if session["error"] and not session["selected_item"]:
         print(f"  {session['error']}")
     else:
         item = session["selected_item"] or {}
         print(f"  Found:    {item.get('title')} — ${item.get('price')} on {item.get('platform')}")
+        comparison = session["price_comparison"] or {}
+        if comparison.get("status") == "compared":
+            print(
+                f"  Price:    average ${comparison['average_comparable_price']:.2f}; "
+                f"difference ${comparison['difference']:+.2f}; "
+                f"{comparison['verdict']} ({comparison['comparable_count']} comparable)"
+            )
+        elif comparison:
+            print(f"  Price:    {comparison.get('message', 'comparison unavailable')}")
         print()
         print(f"  Outfit:   {session['outfit_suggestion']}")
         print()
         print(f"  Fit card: {session['fit_card']}")
+        if session["error"]:
+            print(f"\n  Note:     {session['error']}")
     print()
 
     if use_trace:

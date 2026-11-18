@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: fitfindr
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn serve:app
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AI201_CACHE
+        value: "1"
+      - key: AI201_DEBUG
+        value: "0"

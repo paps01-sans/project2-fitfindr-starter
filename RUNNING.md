@@ -140,6 +140,57 @@ On a host, the start command is:
 gunicorn serve:app
 ```
 
+## Render deployment
+
+FitFindr is intended to deploy on Render as a hosted Flask service. The
+repository already has the required start command and health route.
+
+1. Push the `main` branch to the GitHub fork that owns this repository.
+2. In Render, choose **New > Web Service**, then connect the GitHub fork.
+3. Select Python as the runtime and use the repository root as the root
+   directory.
+4. Set the build command to:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. Set the start command to exactly:
+
+   ```bash
+   gunicorn serve:app
+   ```
+
+6. Add these environment variables:
+
+   | Name | Value |
+   |---|---|
+   | `GEMINI_API_KEY` | A valid Google AI Studio API key |
+   | `AI201_MODEL` | Optional model override; omit to use the configured default |
+   | `AI201_CACHE` | `1` while building, or `0` for uncached evaluation runs |
+   | `AI201_DEBUG` | `0` |
+
+7. Set the health-check path to `/health`.
+8. Deploy and open the generated Render URL. Use `/health` for the basic check
+   and `/` for the browser UI.
+9. Verify `POST /ask` with the Render URL:
+
+   ```bash
+   curl -X POST https://YOUR-SERVICE.onrender.com/ask \
+     -H "Content-Type: application/json" \
+     -d '{"query":"vintage graphic tee under $30"}'
+   ```
+
+Render instances with the free tier may cold-start after inactivity. The first
+request can take about a minute; `/health` is used for the readiness check.
+Keep the Gunicorn worker count at one. Do not use gevent, eventlet, uvicorn,
+or async workers: `mcp_client.py` uses `asyncio.run()` for MCP calls.
+
+**Windows note:** Gunicorn uses Unix-only modules and will not start locally
+on Windows. Use `python serve.py` for local Windows development. On Render,
+the host is Linux, so `gunicorn serve:app` is the correct production start
+command.
+
 | Thing | What it means |
 |---|---|
 | `PORT` | The host tells your app which port to listen on by setting this. Both `serve.py` and `gunicorn` read it, and `serve.py` falls back to `5000` on your machine. Don't hard-code a port |
@@ -149,9 +200,24 @@ gunicorn serve:app
 | `gunicorn serve:app`, exactly | Not `-k gevent`, not `-k eventlet`, not wrapped for uvicorn. `mcp_client.call_tool` uses `asyncio.run()`, which won't start inside a running event loop, so an async worker breaks **every** MCP call — and only once you've deployed it |
 | The first request is slow | The free tier puts your app to sleep after about fifteen minutes of nothing. The next request wakes it up and waits for it — around a minute. Not a bug, and worth knowing before you demo it |
 
-`serve.py` ships with **no logging and no timing in it**, on purpose. You add
-that yourself in the follow-along, before you deploy — instrumenting first is
-the point of the session.
+`serve.py` writes each `/ask` result and rejected request to
+`results/instrumentation.jsonl` as a JSON object. It includes a timestamp,
+request ID, input summary, output summary, duration, status, outcome, failed
+step, model-call count, and token counts.
+
+## Test from a fresh clone
+
+To verify that these instructions are complete:
+
+1. Clone a fresh copy of the fork into a new folder.
+2. Create `.venv` and install `pip install -r requirements.txt`.
+3. Copy `.env.example` to `.env`, then set `GEMINI_API_KEY`.
+4. Run `python test.py`.
+5. Start the app with `python serve.py`.
+6. Open `http://localhost:5000/`.
+7. Confirm `/health` returns `{"status":"ok"}`.
+8. Submit a matching query and a malformed `{}` request.
+9. Confirm `results/instrumentation.jsonl` contains both runs.
 
 ---
 

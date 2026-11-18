@@ -72,6 +72,48 @@ testing.
 
 ---
 
+## Instrumentation
+
+Every `/ask` run and malformed `/ask` request is appended to
+`results/instrumentation.jsonl`. Each JSON line contains a UTC timestamp,
+request ID, input summary, output summary, duration, HTTP status, outcome,
+failed step, model-call count, prompt tokens, and output tokens.
+
+```text
+{"timestamp":"2026-11-18T20:46:07.170655+00:00","request_id":"22746863bb71","input":{"query":"vintage graphic tee under","wardrobe_item_count":10},"output":{"search_count":10,"selected_item_id":"lst_002","selected_item_title":"Y2K Baby Tee — Butterfly Print","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":13715.35,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:46:17.144704+00:00","request_id":"337d3a6280b0","input":{"query":"denim jacket under","wardrobe_item_count":10},"output":{"search_count":9,"selected_item_id":"lst_007","selected_item_title":"Denim Jacket — Light Wash, Cropped","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":7939.6,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:46:28.933370+00:00","request_id":"6b80b64f0729","input":{"query":"90s track jacket in size M","wardrobe_item_count":10},"output":{"search_count":4,"selected_item_id":"lst_004","selected_item_title":"90s Track Jacket — Navy/White Stripe","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":9740.77,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:46:38.892235+00:00","request_id":"809bfa787fe5","input":{"query":"silk slip dress in midi length under","wardrobe_item_count":10},"output":{"search_count":10,"selected_item_id":"lst_013","selected_item_title":"90s Silk Slip Dress — Floral, Midi Length","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":7922.51,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:46:48.647752+00:00","request_id":"413ae9a4f0c1","input":{"query":"platform sneakers size 8","wardrobe_item_count":10},"output":{"search_count":1,"selected_item_id":"lst_019","selected_item_title":"Platform Sneakers — White Chunky Sole","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":7731.59,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:46:57.831495+00:00","request_id":"e2f7d245a072","input":{"query":"graphic tee under","wardrobe_item_count":10},"output":{"search_count":6,"selected_item_id":"lst_017","selected_item_title":"Mesh Long-Sleeve Top — Black","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":7150.59,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:47:06.054991+00:00","request_id":"6163f49a8d4c","input":{"query":"corduroy pants under","wardrobe_item_count":10},"output":{"search_count":3,"selected_item_id":"lst_005","selected_item_title":"Corduroy Wide-Leg Pants — Rust","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":6163.49,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:47:13.924787+00:00","request_id":"ce652afb033e","input":{"query":"knit cardigan under","wardrobe_item_count":10},"output":{"search_count":3,"selected_item_id":"lst_008","selected_item_title":"Knit Cardigan — Chunky Brown","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":5837.77,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:47:20.690954+00:00","request_id":"4b54f42d2bf0","input":{"query":"flannel shirt size XL","wardrobe_item_count":10},"output":{"search_count":1,"selected_item_id":"lst_003","selected_item_title":"Oversized Flannel Shirt — Plaid Red/Black","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":4717.19,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+{"timestamp":"2026-11-18T20:47:28.156136+00:00","request_id":"1760658dcccf","input":{"query":"brown boots under","wardrobe_item_count":10},"output":{"search_count":6,"selected_item_id":"lst_008","selected_item_title":"Knit Cardigan — Chunky Brown","has_fit_card":true,"failed_step":"suggest_outfit"},"duration_ms":5400.04,"status":200,"outcome":"success","failed_step":"suggest_outfit","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+```
+
+**One rejected run**
+
+```text
+{"timestamp":"2026-11-18T20:48:30.951855+00:00","request_id":"3b14cdfa1688","input":{},"output":{"error":"Send JSON with a 'query' field"},"duration_ms":0.14,"status":400,"outcome":"rejected_input","failed_step":"request_validation","model_calls":0,"prompt_tokens":0,"output_tokens":0}
+```
+
+The failed run is a malformed request with no `query`. It was returned as HTTP
+400 and written to the JSONL log instead of disappearing.
+
+## What It Costs
+
+I measured one complete `/ask` run by sending ten uncached matching requests to
+the local Flask server, with `AI201_CACHE=0`, and averaging the server-measured
+`duration_ms` field. The mean was **7.632 seconds per run**, with a median of
+**7.441 seconds**. The measured range was **4.717 to 13.715 seconds**. This
+measurement includes MCP search-process startup and fallback handling. No model
+calls or tokens were measured because the current API key is rejected, so
+these runs produced **0 model calls and 0 tokens**. This is a real measured
+runtime cost, not a cost estimate from a pricing page.
+
+---
+
 ## Tool Inventory
 
 <!-- Four lines per tool. This is worth 2 points and it's the single most

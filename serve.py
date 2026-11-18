@@ -27,15 +27,18 @@ web server has to be. The reason is worth reading before you deploy: see the
 note above `_one_at_a_time` below — it also decides which gunicorn worker you
 can use.
 
-⚠️ There is deliberately NO logging, NO timing and NO request counting in this
-file. That is unit 9's follow-along: you instrument this yourself, first, and
-then deploy it. A structured log you were handed teaches you nothing about
-what belongs in one — and the timing field is the one everybody skips.
+Every `/ask` run and rejected request is appended to
+`results/instrumentation.jsonl` with named fields for input, output, duration,
+status, outcome, failure step, model calls, and token counts.
 """
 
 import os
 import sys
 import threading
+import time
+import uuid
+import json
+from datetime import datetime, timezone
 
 # config first, and before anything that talks to the model: it loads your .env
 # and fixes the Windows console encoding for every module that imports it.
@@ -47,6 +50,15 @@ from agent import run_agent
 from utils.data_loader import get_example_wardrobe
 
 app = Flask(__name__)
+
+RUN_LOG = config.RESULTS_DIR / "instrumentation.jsonl"
+
+
+def write_run_log(record: dict) -> None:
+    """Append one structured run record for local or hosted execution."""
+    config.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    with RUN_LOG.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, sort_keys=True) + "\n")
 
 
 # ── one request at a time ─────────────────────────────────────────────────────
@@ -113,12 +125,25 @@ def ask():
                                                 example wardrobe the CLI uses.
     Out:  the session dict from run_agent(), as JSON.
     """
+    started = time.perf_counter()
+    request_id = uuid.uuid4().hex[:12]
     payload = request.get_json(silent=True) or {}
     query = (payload.get("query") or "").strip()
     if not query:
         # 400 rather than a stack trace: the caller can act on this one.
-        return jsonify({"error": "Send JSON with a 'query' field, e.g. "
-                                 '{"query": "vintage graphic tee under $30"}'}), 400
+        error = "Send JSON with a 'query' field, e.g. " \
+                '{"query": "vintage graphic tee under $30"}'
+        write_run_log({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "request_id": request_id,
+            "input": payload,
+            "output": {"error": error},
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "status": 400,
+            "outcome": "rejected_input",
+            "failed_step": "request_validation",
+        })
+        return jsonify({"error": error}), 400
 
     wardrobe = payload.get("wardrobe")
     if not isinstance(wardrobe, dict):
@@ -129,9 +154,8 @@ def ask():
     # indistinguishable from the outside — which is how people conclude the
     # deployment is broken when it is behaving exactly as designed.
     #
-    # This is NOT the logging you add in the follow-along. It prints nothing
-    # on the normal path, carries no timing and counts nothing; it says only
-    # that this request had to wait. `locked()` can be a moment out of date,
+    # This wait notice is separate from the structured JSONL run record.
+    # It says only that this request had to wait. `locked()` can be a moment out of date,
     # so the note is occasionally missed — which costs nothing, because
     # nothing depends on it.
     if _one_at_a_time.locked():
@@ -144,6 +168,10 @@ def ask():
 
     failure = None
     session = None
+    from generate import call_count, token_counts
+
+    calls_before = call_count()
+    tokens_before = token_counts()
     with _one_at_a_time:
         try:
             session = run_agent(query, wardrobe)
@@ -152,8 +180,50 @@ def ask():
 
     # Outside the lock: building a response is not work the next caller should
     # be waiting on.
+    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    calls_after = call_count()
+    tokens_after = token_counts()
     if failure is not None:
-        return jsonify({"error": failure}), 500
+        output = {"error": failure}
+        status = 500
+        outcome = "server_error"
+        failed_step = "run_agent"
+    else:
+        output = {
+            "error": session["error"],
+            "search_count": len(session["search_results"]),
+            "selected_item_id": (
+                session["selected_item"].get("id")
+                if session["selected_item"] else None
+            ),
+            "selected_item_title": (
+                session["selected_item"].get("title")
+                if session["selected_item"] else None
+            ),
+            "has_outfit": bool(session["outfit_suggestion"]),
+            "has_fit_card": bool(session["fit_card"]),
+            "failed_step": session.get("failed_step"),
+        }
+        status = 200
+        outcome = "no_match" if not session["search_results"] else "success"
+        failed_step = session.get("failed_step")
+
+    write_run_log({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": request_id,
+        "input": {"query": query, "wardrobe_item_count": len(wardrobe.get("items", []))},
+        "output": output,
+        "duration_ms": duration_ms,
+        "status": status,
+        "outcome": outcome,
+        "failed_step": failed_step,
+        "model_calls": calls_after - calls_before,
+        "prompt_tokens": tokens_after["prompt"] - tokens_before["prompt"],
+        "output_tokens": tokens_after["output"] - tokens_before["output"],
+    })
+
+    if failure is not None:
+        return jsonify({"error": failure}), status
 
     return jsonify(session)
 

@@ -112,7 +112,38 @@ calls or tokens were measured because the current API key is rejected, so
 these runs produced **0 model calls and 0 tokens**. This is a real measured
 runtime cost, not a cost estimate from a pricing page.
 
+For one run: **7.632 seconds** of compute. For 100 people in one day, assuming
+one run per person: `100 runs × 7.632 seconds/run = 763.2 seconds`, or about
+**12.72 minutes** of compute. This is not a dollar-cost estimate because I did
+not complete a paid or authenticated model run; it measures local wall-clock
+cost and MCP startup rather than API charges.
+
 ---
+
+## Capstone
+
+### How I Used AI
+
+For this capstone, I used Copilot as a coding assistant rather than as a
+replacement for my own decisions. I first asked it to organize the project
+scope into Shape C and to identify a browser extension that could reuse the
+existing `/ask` run path. I reviewed that plan, kept the database-free
+localStorage design, and cut account features and live marketplace scraping
+before implementation.
+
+When the feedback pointed out that query parsing was too tightly mixed into
+`run_agent()`, I directed Copilot to extract `parse_query()` and separate
+model-dependent calls from the deterministic price comparison. I tested those
+changes with my own terminal commands and kept the parts that showed real
+results. I also used it to generate an initial outline for the structured log
+and test runner, then inspected and ran the code myself.
+
+Copilot found the missing saved-listing implementation in the Milestone 5
+diagnosis, and I used that diagnosis to implement Save/Unsave, a saved panel,
+Copy Caption, and Share Fit. I did not assume the improvement worked: I reran
+the full three-trial set and recorded both the missing and passing evidence.
+The final write-up reflects the measured outcomes, including the limitations
+of a local run and a rejected API key.
 
 ## Capstone Milestone 5 — Run Log
 
@@ -685,6 +716,29 @@ Y2K Baby Tee — Butterfly Print at $18.0 from depop makes an easy everyday look
 ---
 
 ## What's Still Broken
+
+### Capstone status
+
+All five capstone criteria passed in the after run: C1, C2, C3, C4, and C5
+each passed 5/5 in all three trials. There is no capstone criterion left
+missed, so I stopped feature work rather than lowering or changing a target.
+The tests are still limited: clipboard and Web Share behavior depend on browser
+permissions, and the current API key was rejected, so a fully successful
+model-generated outfit and fit card was not measured locally.
+
+The targets were generally demanding enough for this MVP. C2 and C4 are strict
+5/5 checks because localStorage and request validation can be observed
+deterministically. C1 and C5 allow one miss out of five because network and
+model fallback behavior can vary. C3 reached 5/5 after the improvement, so I
+would tighten its future target to 5/5 for the save, reload, copy, and share
+data fields rather than the 4/5 browser-permission target used in this run.
+
+**What I'd do next if this were real:** I would first deploy to Render and
+verify the browser, `/health`, `/ask`, and a valid model key from one public
+URL, because that is the highest-risk gap between a local Flask app and a
+usable service. If that worked, I would then add server-side persistence and
+accounts only if cross-device saved wardrobes became an actual requirement,
+because browser-only storage is intentionally sufficient for this MVP.
 
 <!-- For each criterion still missed: what you'd do, and why you stopped where
      you did. "I ran out of time" is fine if it's true. Pretending nothing is

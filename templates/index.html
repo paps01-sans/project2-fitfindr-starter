@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FitFindr</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Secondhand styling agent</p>
+      <h1>FitFindr</h1>
+    </div>
+  </header>
+
+  <main>
+    <section class="search-card" aria-labelledby="search-title">
+      <h2 id="search-title">What are you looking for?</h2>
+      <form id="search-form">
+        <label for="query">Describe the item</label>
+        <input id="query" name="query" type="text" required
+          placeholder="vintage graphic tee" autocomplete="off">
+
+        <div class="search-options">
+          <div>
+            <label for="size">Size <span>(optional)</span></label>
+            <input id="size" name="size" type="text" placeholder="M">
+          </div>
+          <div>
+            <label for="budget">Budget <span>(optional)</span></label>
+            <input id="budget" name="budget" type="number" min="1" step="1" placeholder="30">
+          </div>
+        </div>
+
+        <button id="search-button" class="button primary" type="submit">Find my fit</button>
+      </form>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <section id="recommendation" class="recommendation" hidden></section>
+
+    <section id="results-section" class="results-section" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Matching listings</p>
+          <h2>Choose a result</h2>
+        </div>
+        <select id="category-filter" aria-label="Filter results by category">
+          <option value="">All categories</option>
+          <option value="tops">Tops</option>
+          <option value="bottoms">Bottoms</option>
+          <option value="outerwear">Outerwear</option>
+          <option value="shoes">Shoes</option>
+          <option value="accessories">Accessories</option>
+        </select>
+      </div>
+      <div id="results" class="results-grid"></div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

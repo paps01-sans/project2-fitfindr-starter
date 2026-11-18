@@ -126,3 +126,79 @@ directly against the numeric listing data without depending on model wording.
      A number you missed stays where it is, gets diagnosed, and gets a fix
      attempted. That's where the points are.
      ───────────────────────────────────────────────────────────────────────── -->
+
+---
+
+## FitFindr Capstone — Extension Criteria
+
+These criteria cover the browser extension and operational layer. They are
+written before capstone test results exist.
+
+## C1. Browser search completes and renders the full result set
+
+For 4 of 5 matching browser searches, submitting the natural-language query
+with an optional size and budget must return a successful `/ask` response,
+enable the submit button again, display the selected item and outfit, and
+render one visible result card for every entry in `session.search_results`.
+If the model is unavailable, a fallback outfit and fit card still count as
+visible output.
+
+**Why this target:**
+The browser is the extension's main run path, and a 4-of-5 target allows for
+one model or network failure while still requiring the normal path to work
+consistently. Checking the full returned result set catches a partial render,
+which is more damaging for comparing listings than a minor wording difference.
+
+## C2. Wardrobe edits survive browser reloads
+
+For 5 of 5 independent add, edit, and remove operations, the resulting wardrobe
+must be stored in `localStorage` under `fitfindr-wardrobe`, remain present
+after a page reload, and produce a matching `wardrobe.items` payload in the next
+`POST /ask` request.
+
+**Why this target:**
+The wardrobe editor is a stateful browser feature but deliberately has no
+database. Five independent operations verify the intended persistence boundary:
+a reload or later search must not silently lose a user's closet. An operation
+can be observed directly, so a strict 5-of-5 target is appropriate.
+
+## C3. Saved listings and sharing preserve the selected fit
+
+For 4 of 5 tested listings, a save action must add exactly that listing ID to
+`fitfindr-saved-listings`, the saved-items panel must show the matching listing
+after reload, Copy Caption must place the fit-card text on the clipboard, and
+Share or copy-share must include the listing title, price, platform, outfit,
+and fit-card caption.
+
+**Why this target:**
+Browser sharing APIs and clipboard permissions vary by browser and host. Four
+of five tests allows for one permission or platform limitation while measuring
+the required data content and persistence instead of a vague "share works"
+claim.
+
+## C4. Rejected input is logged and does not run the agent
+
+For 5 of 5 requests that send an empty body or a JSON object with no non-empty
+`query`, the server must return HTTP 400 with an actionable `error`, must not
+call `run_agent()`, and must append one JSONL record containing `request_id`,
+`input`, `output`, `duration_ms`, `status=400`, `outcome="rejected_input"`,
+and `failed_step="request_validation"`.
+
+**Why this target:**
+Malformed input is inexpensive to detect and has no legitimate reason to reach
+the MCP or model stack. A 5-of-5 target enforces a deterministic bad-input
+boundary and verifies that a failure is both returned and observable.
+
+## C5. Price comparison is visible to the user
+
+For 4 of 5 matching successful searches, the browser recommendation panel must
+show the comparable-listing average and the verdict; if the selected item has
+no comparable listings, it must show the unavailable status and zero comparable
+count instead of omitting the price section. The CLI `app.py ask` output must
+also print the average, difference, verdict, or unavailable message.
+
+**Why this target:**
+The original feedback identified `compare_price` as useful data that was easy
+for a session to calculate and then hide. A 4-of-5 target allows for one
+render or model-state failure while requiring both browser and CLI surfaces to
+remain measurable.
